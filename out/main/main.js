@@ -221,7 +221,7 @@ function createWindow() {
       preload: path__namespace.join(__dirname, "../", "preload", "preload.js")
     }
   });
-  mainWindow.loadURL("http://localhost:5173");
+  mainWindow.loadFile("./src/renderer/dist/index.html");
   mainWindow.on("closed", () => mainWindow = null);
   electron.ipcMain.on("format", (e, data) => {
     if (data) {
@@ -231,6 +231,7 @@ function createWindow() {
   });
   let cancel = false;
   electron.ipcMain.on("compare", async (e, pcandpartsData, options) => {
+    console.log("COMPARE");
     if (pcandpartsData && !cancel) {
       const items = [];
       console.log(options);
@@ -240,16 +241,26 @@ function createWindow() {
         items.push(info);
         e.reply("progress", parseInt(pcandpartsCellIndex) + 1);
       }
-      const csvFormatted = formatToCsv(items, options.tax + 1, options.lowerType);
+      const csvFormatted = formatToCsv(
+        items,
+        options.tax + 1,
+        options.lowerType
+      );
       console.log(csvFormatted);
       e.reply("compare", csvFormatted);
     }
   });
-  electron.ipcMain.on("cancel", () => {
-    cancel = true;
+  electron.ipcMain.on("cancel", (e, v) => {
+    console.log("CANCEL");
+    if (v) {
+      cancel = true;
+    }
   });
-  electron.ipcMain.on("start", () => {
-    cancel = false;
+  electron.ipcMain.on("start", (e, v) => {
+    console.log("START");
+    if (v) {
+      cancel = false;
+    }
   });
   electron.ipcMain.on("end", () => {
     console.log(1);

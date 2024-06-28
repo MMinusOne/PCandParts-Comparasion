@@ -6,6 +6,7 @@ import searchAyoub from "./adapters/searchAyoub";
 import searchMojitech from "./adapters/searchMojitech";
 import searchPcAndParts from "./adapters/searchPcAndParts";
 import stringToNumber from "./utils/stringToNumber";
+import { Worker } from "worker_threads";
 
 let mainWindow;
 
@@ -13,6 +14,7 @@ const fetchData = async (shortDescription = "", SKU, taxxed) => {
   const ayoubDataCell = await searchAyoub(shortDescription, SKU);
   const mojitechDataCell = await searchMojitech(shortDescription, SKU);
   const pcandpartsDataCell = await searchPcAndParts(shortDescription, SKU);
+
   console.log(SKU, taxxed);
   return {
     SKU: SKU,
@@ -38,7 +40,8 @@ function createWindow() {
     },
   });
 
-  mainWindow.loadURL("http://localhost:5173");
+  // mainWindow.loadURL("http://localhost:5173");
+  mainWindow.loadFile("./src/renderer/dist/index.html");
   mainWindow.on("closed", () => (mainWindow = null));
 
   ipcMain.on("format", (e, data) => {
@@ -51,6 +54,7 @@ function createWindow() {
   let cancel = false;
 
   ipcMain.on("compare", async (e, pcandpartsData, options) => {
+    console.log("COMPARE");
     if (pcandpartsData && !cancel) {
       const items = [];
       console.log(options);
@@ -61,18 +65,28 @@ function createWindow() {
         items.push(info);
         e.reply("progress", parseInt(pcandpartsCellIndex) + 1);
       }
-      const csvFormatted = formatToCsv(items, options.tax + 1, options.lowerType);
+      const csvFormatted = formatToCsv(
+        items,
+        options.tax + 1,
+        options.lowerType
+      );
       console.log(csvFormatted);
       e.reply("compare", csvFormatted);
     }
   });
 
-  ipcMain.on("cancel", () => {
-    cancel = true;
+  ipcMain.on("cancel", (e, v) => {
+    console.log("CANCEL");
+    if (v) {
+      cancel = true;
+    }
   });
 
-  ipcMain.on("start", () => {
-    cancel = false;
+  ipcMain.on("start", (e, v) => {
+    console.log("START");
+    if (v) {
+      cancel = false;
+    }
   });
 
   ipcMain.on("end", () => {

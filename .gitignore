@@ -2,3 +2,6 @@ data.xlsx
 output.csv 
 test.js
 node_modules
+out
+build
+output

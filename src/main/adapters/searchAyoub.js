@@ -1,6 +1,6 @@
 const jaro = require("jaro-winkler");
 
-module.exports = async (shortDesc, SKU) => {
+export default async function searchAyoub (shortDesc, SKU)  {
   const data = await fetch(
     "https://filter.freshclick.co.uk/Category_filter/ajax_search_products",
     {

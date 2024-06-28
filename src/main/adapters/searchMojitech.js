@@ -1,7 +1,7 @@
 const { JSDOM } = require("jsdom");
 const jaro = require("jaro-winkler");
 
-module.exports = async (shortDesc, SKU) => {
+export default async function searchMojitech (shortDesc, SKU)  {
   const data = await fetch(
     `https://mojitech.net/wp-admin/admin-ajax.php?action=flatsome_ajax_search_products&query=${SKU}`,
     {
@@ -31,7 +31,6 @@ module.exports = async (shortDesc, SKU) => {
     data?.products?.length === 1
       ? data.products.at(0)
       : data?.suggestions?.sort((a, b) => {
-          console.log(a?.value, b?.value);
           const diffA = jaro(a.value, shortDesc);
           const diffB = jaro(b.value, shortDesc);
           return diffA - diffB;

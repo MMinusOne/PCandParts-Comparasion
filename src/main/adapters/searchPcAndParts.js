@@ -1,7 +1,7 @@
 const { JSDOM } = require("jsdom");
 const jaro = require("jaro-winkler");
 
-module.exports = async (shortDesc, SKU) => {
+export default async function searchPcAndParts(shortDesc, SKU) {
   const data = await fetch(
     `https://pcandparts.com/wp-admin/admin-ajax.php?action=flatsome_ajax_search_products&query=${SKU}`,
     {
@@ -27,23 +27,23 @@ module.exports = async (shortDesc, SKU) => {
     }
   ).then((r) => r.json());
 
-  const suggestions = data?.suggestions
-    ?.sort((a, b) => {
-      const diffA = jaro(a.value, shortDesc);
-      const diffB = jaro(b.value, shortDesc)
-      return diffA - diffB;
-    })
+  const suggestions = data?.suggestions?.sort((a, b) => {
+    const diffA = jaro(a.value, shortDesc);
+    const diffB = jaro(b.value, shortDesc);
+    return diffA - diffB;
+  });
   const firstSuggestion = suggestions ? suggestions.at(-1) : undefined;
   if (firstSuggestion) {
     const jsdom = new JSDOM(firstSuggestion.price);
     const doc = jsdom.window.document;
     const diggedPriceElement =
-      (doc.querySelector("strong") ? undefined : [...doc.querySelectorAll("bdi")].at(-1)) ||
-      undefined;
+      (doc.querySelector("strong")
+        ? undefined
+        : [...doc.querySelectorAll("bdi")].at(-1)) || undefined;
     diggedPriceElement?.removeChild(diggedPriceElement.querySelector("span"));
     const diggedPrice = diggedPriceElement?.innerHTML;
     firstSuggestion.price = diggedPrice;
   }
 
   return firstSuggestion;
-};
+}

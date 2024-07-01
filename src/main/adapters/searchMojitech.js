@@ -1,9 +1,9 @@
 const { JSDOM } = require("jsdom");
 const jaro = require("jaro-winkler");
 
-export default async function searchMojitech (shortDesc, SKU)  {
+export default async function searchMojitech(shortDesc, SKU, searchMode = "sku") {
   const data = await fetch(
-    `https://mojitech.net/wp-admin/admin-ajax.php?action=flatsome_ajax_search_products&query=${SKU}`,
+    `https://mojitech.net/wp-admin/admin-ajax.php?action=flatsome_ajax_search_products&query=${searchMode === "sku"? SKU: shortDesc}`,
     {
       headers: {
         accept: "text/plain, */*; q=0.01",
@@ -31,10 +31,10 @@ export default async function searchMojitech (shortDesc, SKU)  {
     data?.products?.length === 1
       ? data.products.at(0)
       : data?.suggestions?.sort((a, b) => {
-          const diffA = jaro(a.value, shortDesc);
-          const diffB = jaro(b.value, shortDesc);
-          return diffA - diffB;
+          return jaro(a?.value, shortDesc) - jaro(b?.value, shortDesc);
         });
+
+        console.log(suggestions)
   const firstSuggestion = suggestions ? suggestions.at(-1) : undefined;
   if (firstSuggestion) {
     const jsdom = new JSDOM(firstSuggestion.price);
@@ -49,4 +49,4 @@ export default async function searchMojitech (shortDesc, SKU)  {
   }
 
   return firstSuggestion;
-};
+}

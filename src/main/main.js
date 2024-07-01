@@ -10,14 +10,23 @@ import { Worker } from "worker_threads";
 
 let mainWindow;
 
-const fetchData = async (shortDescription = "", SKU, taxxed) => {
-  const ayoubDataCell = await searchAyoub(shortDescription, SKU);
-  const mojitechDataCell = await searchMojitech(shortDescription, SKU);
-  const pcandpartsDataCell = await searchPcAndParts(shortDescription, SKU);
+const fetchData = async (shortDescription = "", SKU, taxxed, searchMode) => {
+  const ayoubDataCell = await searchAyoub(shortDescription, SKU, searchMode);
+  const mojitechDataCell = await searchMojitech(
+    shortDescription,
+    SKU,
+    searchMode
+  );
+  const pcandpartsDataCell = await searchPcAndParts(
+    shortDescription,
+    SKU,
+    searchMode
+  );
 
   console.log(SKU, taxxed);
   return {
     SKU: SKU,
+    shortDescription: shortDescription,
     prices: {
       ayoub: stringToNumber(ayoubDataCell?.sale_price || ayoubDataCell?.price),
       mojitech: stringToNumber(mojitechDataCell?.price),
@@ -25,7 +34,9 @@ const fetchData = async (shortDescription = "", SKU, taxxed) => {
     },
     taxes: {
       pcandparts: taxxed,
-      mojitechHas: mojitechDataCell.value.toLowerCase().includes("tax")
+      mojitechHas: (mojitechDataCell?.value || "")
+        ?.toLowerCase()
+        ?.includes("tax")
         ? false
         : true,
     },
@@ -40,8 +51,8 @@ function createWindow() {
     },
   });
 
-  // mainWindow.loadURL("http://localhost:5173");
-  mainWindow.loadFile("./src/renderer/dist/index.html");
+  mainWindow.loadURL("http://localhost:5173");
+  // mainWindow.loadFile("./src/renderer/dist/index.html");
   mainWindow.on("closed", () => (mainWindow = null));
 
   ipcMain.on("format", (e, data) => {
@@ -79,6 +90,13 @@ function createWindow() {
     console.log("CANCEL");
     if (v) {
       cancel = true;
+    }
+  });
+
+  ipcMain.on("quick-search", async (e, info, searchMode) => {
+    if (info) {
+      const data = await fetchData(info, info, false, searchMode);
+      e.reply("quick-search", data);
     }
   });
 

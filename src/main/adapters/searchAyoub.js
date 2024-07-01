@@ -1,6 +1,6 @@
 const jaro = require("jaro-winkler");
 
-export default async function searchAyoub (shortDesc, SKU)  {
+export default async function searchAyoub(shortDesc, SKU, searchMode) {
   const data = await fetch(
     "https://filter.freshclick.co.uk/Category_filter/ajax_search_products",
     {
@@ -19,7 +19,7 @@ export default async function searchAyoub (shortDesc, SKU)  {
       },
       referrer: "https://ayoubcomputers.com/",
       referrerPolicy: "strict-origin-when-cross-origin",
-      body: `site=sp9oc95xrw&search_keyword=${SKU}&customer_group=13&currency=&freshClickSearchCategory=0&channel_id=1`,
+      body: `site=sp9oc95xrw&search_keyword=${searchMode === "sku"? SKU: shortDesc.toLowerCase()}&customer_group=13&currency=&freshClickSearchCategory=0&channel_id=1`,
       method: "POST",
       mode: "cors",
       credentials: "omit",
@@ -28,11 +28,7 @@ export default async function searchAyoub (shortDesc, SKU)  {
   const firstProduct =
     data?.products?.length === 1
       ? data.products.at(0)
-      : data?.products
-          ?.sort((a, b) => {
-            return jaro(a.title, shortDesc) - jaro(b.title, shortDesc);
-          })
-          ?.at(-1);
+      : data?.products.filter((e) => e?.value?.toLowerCase() === shortDesc.toLowerCase())?.at(-1);
   if (firstProduct) {
     if (firstProduct.is_price_hidden === 1) {
       firstProduct.price = undefined;
@@ -42,4 +38,4 @@ export default async function searchAyoub (shortDesc, SKU)  {
   } else {
     return undefined;
   }
-};
+}

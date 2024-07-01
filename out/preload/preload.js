@@ -23,6 +23,18 @@ contextBridge.exposeInMainWorld("electron", {
   },
   onProgress: (action) => ipcRenderer.on("progress", action),
   cancel: () => ipcRenderer.send("cancel", true),
+  quickSearch: (data) => {
+    return new Promise((r) => {
+      ipcRenderer.send("quick-search", data);
+      ipcRenderer.on("quick-search", (e, searchResults) => {
+        if (searchResults) {
+          if (data) {
+            r(searchResults);
+          }
+        }
+      });
+    });
+  },
   start: () => ipcRenderer.send("start", true),
   end: () => ipcRenderer.send("end")
 });

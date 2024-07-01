@@ -1,6 +1,7 @@
 "use strict";
 const electron = require("electron");
 const path = require("path");
+require("worker_threads");
 function _interopNamespaceDefault(e) {
   const n = Object.create(null, { [Symbol.toStringTag]: { value: "Module" } });
   if (e) {
@@ -48,16 +49,19 @@ function formatData(jsonData) {
 }
 function formatToCsv(data, tax, lowerType) {
   return data.map((cell) => {
-    const pcandpartsPrice = cell.prices.pcandparts * (cell.taxes.pcandpartsHas ? 1 : tax);
-    const pcandpartsMojitechDiff = pcandpartsPrice - cell.prices.mojitech * (cell.taxes.mojitechHas ? 1 : tax);
+    const pcandpartsPrice = parseInt(cell.prices.pcandparts) * (cell.taxes.pcandpartsHas ? 1 : tax);
+    const mojitechPrice = parseInt(cell.prices.mojitech);
+    const ayoubPrice = parseInt(cell.prices.ayoub);
+    const pcandpartsMojitechDiff = pcandpartsPrice - mojitechPrice * (cell.taxes.mojitechHas ? 1 : tax);
     const pcandpartsAyoubDiff = pcandpartsPrice - cell.prices.ayoub * tax;
     const condition = lowerType === 0 ? pcandpartsAyoubDiff > 0 || pcandpartsMojitechDiff > 0 : pcandpartsAyoubDiff < 0 || pcandpartsMojitechDiff < 0;
     if (condition) {
       const data2 = {
         SKU: cell.SKU,
-        "PC and Parts Price": cell.prices.pcandparts || "",
-        "Mojitech Price": cell.prices.mojitech || "",
-        "Ayoub Computers Price": cell.prices.ayoub * tax || "",
+        "Description": cell.shortDescription,
+        "PC and Parts Price": pcandpartsPrice || "",
+        "Mojitech Price": mojitechPrice || "",
+        "Ayoub Computers Price": ayoubPrice * tax || "",
         "PCAndParts/Mojitech Price difference": pcandpartsMojitechDiff || "",
         "PCandParts/AyoubComputers Price difference": pcandpartsAyoubDiff || ""
       };
@@ -65,8 +69,8 @@ function formatToCsv(data, tax, lowerType) {
     }
   }).filter((e) => e);
 }
-const jaro$2 = require("jaro-winkler");
-async function searchAyoub(shortDesc, SKU) {
+require("jaro-winkler");
+async function searchAyoub(shortDesc, SKU, searchMode) {
   const data = await fetch(
     "https://filter.freshclick.co.uk/Category_filter/ajax_search_products",
     {
@@ -84,15 +88,13 @@ async function searchAyoub(shortDesc, SKU) {
       },
       referrer: "https://ayoubcomputers.com/",
       referrerPolicy: "strict-origin-when-cross-origin",
-      body: `site=sp9oc95xrw&search_keyword=${SKU}&customer_group=13&currency=&freshClickSearchCategory=0&channel_id=1`,
+      body: `site=sp9oc95xrw&search_keyword=${searchMode === "sku" ? SKU : shortDesc.toLowerCase()}&customer_group=13&currency=&freshClickSearchCategory=0&channel_id=1`,
       method: "POST",
       mode: "cors",
       credentials: "omit"
     }
   ).then((r) => r.json());
-  const firstProduct = data?.products?.length === 1 ? data.products.at(0) : data?.products?.sort((a, b) => {
-    return jaro$2(a.title, shortDesc) - jaro$2(b.title, shortDesc);
-  })?.at(-1);
+  const firstProduct = data?.products?.length === 1 ? data.products.at(0) : data?.products.filter((e) => e?.value?.toLowerCase() === shortDesc.toLowerCase())?.at(-1);
   if (firstProduct) {
     if (firstProduct.is_price_hidden === 1) {
       firstProduct.price = void 0;
@@ -105,9 +107,9 @@ async function searchAyoub(shortDesc, SKU) {
 }
 const { JSDOM: JSDOM$1 } = require("jsdom");
 const jaro$1 = require("jaro-winkler");
-async function searchMojitech(shortDesc, SKU) {
+async function searchMojitech(shortDesc, SKU, searchMode = "sku") {
   const data = await fetch(
-    `https://mojitech.net/wp-admin/admin-ajax.php?action=flatsome_ajax_search_products&query=${SKU}`,
+    `https://mojitech.net/wp-admin/admin-ajax.php?action=flatsome_ajax_search_products&query=${searchMode === "sku" ? SKU : shortDesc}`,
     {
       headers: {
         accept: "text/plain, */*; q=0.01",
@@ -129,10 +131,9 @@ async function searchMojitech(shortDesc, SKU) {
     }
   ).then((r) => r.json());
   const suggestions = data?.products?.length === 1 ? data.products.at(0) : data?.suggestions?.sort((a, b) => {
-    const diffA = jaro$1(a.value, shortDesc);
-    const diffB = jaro$1(b.value, shortDesc);
-    return diffA - diffB;
+    return jaro$1(a?.value, shortDesc) - jaro$1(b?.value, shortDesc);
   });
+  console.log(suggestions);
   const firstSuggestion = suggestions ? suggestions.at(-1) : void 0;
   if (firstSuggestion) {
     const jsdom = new JSDOM$1(firstSuggestion.price);
@@ -196,13 +197,21 @@ function stringToNumber(str) {
   }
 }
 let mainWindow;
-const fetchData = async (shortDescription = "", SKU, taxxed) => {
-  const ayoubDataCell = await searchAyoub(shortDescription, SKU);
-  const mojitechDataCell = await searchMojitech(shortDescription, SKU);
-  const pcandpartsDataCell = await searchPcAndParts(shortDescription, SKU);
+const fetchData = async (shortDescription = "", SKU, taxxed, searchMode) => {
+  const ayoubDataCell = await searchAyoub(shortDescription, SKU, searchMode);
+  const mojitechDataCell = await searchMojitech(
+    shortDescription,
+    SKU,
+    searchMode
+  );
+  const pcandpartsDataCell = await searchPcAndParts(
+    shortDescription,
+    SKU
+  );
   console.log(SKU, taxxed);
   return {
     SKU,
+    shortDescription,
     prices: {
       ayoub: stringToNumber(ayoubDataCell?.sale_price || ayoubDataCell?.price),
       mojitech: stringToNumber(mojitechDataCell?.price),
@@ -210,7 +219,7 @@ const fetchData = async (shortDescription = "", SKU, taxxed) => {
     },
     taxes: {
       pcandparts: taxxed,
-      mojitechHas: mojitechDataCell.value.toLowerCase().includes("tax") ? false : true
+      mojitechHas: (mojitechDataCell?.value || "")?.toLowerCase()?.includes("tax") ? false : true
     }
   };
 };
@@ -221,7 +230,7 @@ function createWindow() {
       preload: path__namespace.join(__dirname, "../", "preload", "preload.js")
     }
   });
-  mainWindow.loadFile("./src/renderer/dist/index.html");
+  mainWindow.loadURL("http://localhost:5173");
   mainWindow.on("closed", () => mainWindow = null);
   electron.ipcMain.on("format", (e, data) => {
     if (data) {
@@ -254,6 +263,12 @@ function createWindow() {
     console.log("CANCEL");
     if (v) {
       cancel = true;
+    }
+  });
+  electron.ipcMain.on("quick-search", async (e, info, searchMode) => {
+    if (info) {
+      const data = await fetchData(info, info, false, searchMode);
+      e.reply("quick-search", data);
     }
   });
   electron.ipcMain.on("start", (e, v) => {

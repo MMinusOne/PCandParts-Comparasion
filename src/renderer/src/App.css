@@ -25,32 +25,3 @@ body {
   justify-items: center;
 }
 
-#input {
-  position: relative;
-  display: inline-block;
-}
-
-#input button {
-  padding: 10px 20px;
-  border: 1px solid #ccc;
-  border-radius: 5px;
-  cursor: pointer;
-  overflow: hidden;
-  text-align: left;
-  transition: background-color 0.2s ease-in-out;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-  font-family: 'Roboto', sans-serif;
-}
-
-#input button:hover {
-  background-color: #388e3c;
-}
-#input button::before {
-  content: "\f0e4";
-  font-family: FontAwesome;
-  margin-right: 5px;
-}
-#input input[type="file"]
-            ::-webkit-file-name-text {
-  color: black;
-}
